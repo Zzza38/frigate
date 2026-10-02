@@ -166,6 +166,58 @@ openvino:
             input_dtype: float
             path: /config/model_cache/yolo.onnx # use the filename you generated above
             labelmap_path: /labelmap/coco-80.txt
+    - key: yolo26
+      label: YOLO26
+      recommended: false
+      download: |-
+        YOLO26 is the end-to-end, NMS-free YOLO from Ultralytics. Frigate reads its native `[1, 300, 6]` output directly, so no NMS runs on the CPU after inference. Export it as ONNX with the command below, altering `MODEL_SIZE=n` and `IMG_SIZE=320` in the first line (available model sizes are `n`, `s`, `m`, `l`, and `x`, common image sizes are `320` and `640`). The `nms=False` flag is what keeps the end-to-end head in the export; without it Ultralytics emits the raw `[1, 84, N]` head, which only works with `model_type: yolo-generic`.
+
+        ```sh
+        docker build . --build-arg MODEL_SIZE=n --build-arg IMG_SIZE=320 --output . -f- <<'EOF'
+        FROM python:3.11 AS build
+        RUN apt-get update && apt-get install --no-install-recommends -y libgl1 libglib2.0-0 && rm -rf /var/lib/apt/lists/*
+        COPY --from=ghcr.io/astral-sh/uv:0.10.4 /uv /bin/
+        RUN uv pip install --system --index-strategy unsafe-best-match --extra-index-url https://download.pytorch.org/whl/cpu ultralytics onnx onnxslim onnxruntime
+        ARG MODEL_SIZE
+        ARG IMG_SIZE
+        WORKDIR /yolo26
+        RUN yolo export model=yolo26${MODEL_SIZE}.pt format=onnx imgsz=${IMG_SIZE} simplify=True nms=False
+        FROM scratch
+        ARG MODEL_SIZE
+        ARG IMG_SIZE
+        COPY --from=build /yolo26/yolo26${MODEL_SIZE}.onnx /yolo26${MODEL_SIZE}-${IMG_SIZE}.onnx
+        EOF
+        ```
+
+        :::warning
+
+        Ultralytics code and the pre-trained YOLO26 weights are licensed under AGPL-3.0, which can affect commercial use. See https://www.ultralytics.com/license for details.
+
+        :::
+      ui: |-
+        Navigate to **Settings > System > Detection models** and select **Intel GPU** (or **Intel NPU**) from the **Hardware** dropdown. Then, on the same model, open the **Custom Model** tab and configure:
+
+        | Field                                    | Value                                                    |
+        | ---------------------------------------- | -------------------------------------------------------- |
+        | **Custom object detector model path**    | `/config/model_cache/yolo26n-320.onnx` (use the filename you generated above) |
+        | **Label map for custom object detector** | `/labelmap/coco-80.txt`                                  |
+        | **Object detection model input width**   | `320` (should match the imgsize set during model export) |
+        | **Object detection model input height**  | `320` (should match the imgsize set during model export) |
+        | **Model Input Pixel Color Format**       | `rgb` (Frigate's default value)                          |
+        | **Model Input Tensor Shape**             | `nchw`                                                   |
+        | **Model Input D Type**                   | `float`                                                  |
+        | **Object Detection Model Type**          | `yolo26`                                                 |
+      yaml: |-
+        models:
+          - devices:
+              - openvino:GPU
+            model_type: yolo26
+            width: 320 # <--- should match the imgsize set during model export
+            height: 320 # <--- should match the imgsize set during model export
+            input_tensor: nchw
+            input_dtype: float
+            path: /config/model_cache/yolo26n-320.onnx # use the filename you generated above
+            labelmap_path: /labelmap/coco-80.txt
     - key: ssd
       label: SSDLite MobileNet v2
       recommended: false
@@ -478,6 +530,58 @@ appleSilicon:
             input_dtype: float
             path: /config/model_cache/yolo.onnx # use the filename you generated above
             labelmap_path: /labelmap/coco-80.txt
+    - key: yolo26
+      label: YOLO26
+      recommended: false
+      download: |-
+        YOLO26 is the end-to-end, NMS-free YOLO from Ultralytics. Frigate reads its native `[1, 300, 6]` output directly, so no NMS runs on the CPU after inference. Export it as ONNX with the command below, altering `MODEL_SIZE=n` and `IMG_SIZE=320` in the first line (available model sizes are `n`, `s`, `m`, `l`, and `x`, common image sizes are `320` and `640`). The `nms=False` flag is what keeps the end-to-end head in the export; without it Ultralytics emits the raw `[1, 84, N]` head, which only works with `model_type: yolo-generic`.
+
+        ```sh
+        docker build . --build-arg MODEL_SIZE=n --build-arg IMG_SIZE=320 --output . -f- <<'EOF'
+        FROM python:3.11 AS build
+        RUN apt-get update && apt-get install --no-install-recommends -y libgl1 libglib2.0-0 && rm -rf /var/lib/apt/lists/*
+        COPY --from=ghcr.io/astral-sh/uv:0.10.4 /uv /bin/
+        RUN uv pip install --system --index-strategy unsafe-best-match --extra-index-url https://download.pytorch.org/whl/cpu ultralytics onnx onnxslim onnxruntime
+        ARG MODEL_SIZE
+        ARG IMG_SIZE
+        WORKDIR /yolo26
+        RUN yolo export model=yolo26${MODEL_SIZE}.pt format=onnx imgsz=${IMG_SIZE} simplify=True nms=False
+        FROM scratch
+        ARG MODEL_SIZE
+        ARG IMG_SIZE
+        COPY --from=build /yolo26/yolo26${MODEL_SIZE}.onnx /yolo26${MODEL_SIZE}-${IMG_SIZE}.onnx
+        EOF
+        ```
+
+        :::warning
+
+        Ultralytics code and the pre-trained YOLO26 weights are licensed under AGPL-3.0, which can affect commercial use. See https://www.ultralytics.com/license for details.
+
+        :::
+      ui: |-
+        Navigate to **Settings > System > Detection models** and select **Apple Neural Engine** from the **Hardware** dropdown. Then, on the same model, open the **Custom Model** tab and configure:
+
+        | Field                                    | Value                                                    |
+        | ---------------------------------------- | -------------------------------------------------------- |
+        | **Custom object detector model path**    | `/config/model_cache/yolo26n-320.onnx` (use the filename you generated above) |
+        | **Label map for custom object detector** | `/labelmap/coco-80.txt`                                  |
+        | **Object detection model input width**   | `320` (should match the imgsize set during model export) |
+        | **Object detection model input height**  | `320` (should match the imgsize set during model export) |
+        | **Model Input Pixel Color Format**       | `rgb` (Frigate's default value)                          |
+        | **Model Input Tensor Shape**             | `nchw`                                                   |
+        | **Model Input D Type**                   | `float`                                                  |
+        | **Object Detection Model Type**          | `yolo26`                                                 |
+      yaml: |-
+        models:
+          - devices:
+              - zmq:tcp://host.docker.internal:5555
+            model_type: yolo26
+            width: 320 # <--- should match the imgsize set during model export
+            height: 320 # <--- should match the imgsize set during model export
+            input_tensor: nchw
+            input_dtype: float
+            path: /config/model_cache/yolo26n-320.onnx # use the filename you generated above
+            labelmap_path: /labelmap/coco-80.txt
     - key: yolo-legacy
       label: YOLO (v3, v4, v7)
       recommended: false
@@ -566,6 +670,58 @@ onnx:
             input_tensor: nchw
             input_dtype: float
             path: /config/model_cache/yolo.onnx # use the filename you generated above
+            labelmap_path: /labelmap/coco-80.txt
+    - key: yolo26
+      label: YOLO26
+      recommended: false
+      download: |-
+        YOLO26 is the end-to-end, NMS-free YOLO from Ultralytics. Frigate reads its native `[1, 300, 6]` output directly, so no NMS runs on the CPU after inference. Export it as ONNX with the command below, altering `MODEL_SIZE=n` and `IMG_SIZE=320` in the first line (available model sizes are `n`, `s`, `m`, `l`, and `x`, common image sizes are `320` and `640`). The `nms=False` flag is what keeps the end-to-end head in the export; without it Ultralytics emits the raw `[1, 84, N]` head, which only works with `model_type: yolo-generic`.
+
+        ```sh
+        docker build . --build-arg MODEL_SIZE=n --build-arg IMG_SIZE=320 --output . -f- <<'EOF'
+        FROM python:3.11 AS build
+        RUN apt-get update && apt-get install --no-install-recommends -y libgl1 libglib2.0-0 && rm -rf /var/lib/apt/lists/*
+        COPY --from=ghcr.io/astral-sh/uv:0.10.4 /uv /bin/
+        RUN uv pip install --system --index-strategy unsafe-best-match --extra-index-url https://download.pytorch.org/whl/cpu ultralytics onnx onnxslim onnxruntime
+        ARG MODEL_SIZE
+        ARG IMG_SIZE
+        WORKDIR /yolo26
+        RUN yolo export model=yolo26${MODEL_SIZE}.pt format=onnx imgsz=${IMG_SIZE} simplify=True nms=False
+        FROM scratch
+        ARG MODEL_SIZE
+        ARG IMG_SIZE
+        COPY --from=build /yolo26/yolo26${MODEL_SIZE}.onnx /yolo26${MODEL_SIZE}-${IMG_SIZE}.onnx
+        EOF
+        ```
+
+        :::warning
+
+        Ultralytics code and the pre-trained YOLO26 weights are licensed under AGPL-3.0, which can affect commercial use. See https://www.ultralytics.com/license for details.
+
+        :::
+      ui: |-
+        Navigate to **Settings > System > Detection models** and select your GPU from the **Hardware** dropdown. Then, on the same model, open the **Custom Model** tab and configure:
+
+        | Field                                    | Value                                                    |
+        | ---------------------------------------- | -------------------------------------------------------- |
+        | **Custom object detector model path**    | `/config/model_cache/yolo26n-320.onnx` (use the filename you generated above) |
+        | **Label map for custom object detector** | `/labelmap/coco-80.txt`                                  |
+        | **Object detection model input width**   | `320` (should match the imgsize set during model export) |
+        | **Object detection model input height**  | `320` (should match the imgsize set during model export) |
+        | **Model Input Pixel Color Format**       | `rgb` (Frigate's default value)                          |
+        | **Model Input Tensor Shape**             | `nchw`                                                   |
+        | **Model Input D Type**                   | `float`                                                  |
+        | **Object Detection Model Type**          | `yolo26`                                                 |
+      yaml: |-
+        models:
+          - devices:
+              - onnx
+            model_type: yolo26
+            width: 320 # <--- should match the imgsize set during model export
+            height: 320 # <--- should match the imgsize set during model export
+            input_tensor: nchw
+            input_dtype: float
+            path: /config/model_cache/yolo26n-320.onnx # use the filename you generated above
             labelmap_path: /labelmap/coco-80.txt
     - key: rfdetr
       label: RF-DETR

@@ -12,6 +12,7 @@ from frigate.util.model import (
     post_process_dfine,
     post_process_rfdetr,
     post_process_yolo,
+    post_process_yolo_end2end,
 )
 
 logger = logging.getLogger(__name__)
@@ -42,6 +43,7 @@ class OvDetector(DetectionApi):
         ModelTypeEnum.ssd,
         ModelTypeEnum.yolonas,
         ModelTypeEnum.yologeneric,
+        ModelTypeEnum.yolo26,
         ModelTypeEnum.yolox,
     ]
 
@@ -97,6 +99,22 @@ class OvDetector(DetectionApi):
             if output_shape[0] != 1 or output_shape[1] != 1 or output_shape[3] != 7:
                 logger.error(f"SSD model output doesn't match. Found {output_shape}.")
                 self.model_invalid = True
+
+        if self.ov_model_type == ModelTypeEnum.yolo26:
+            model_outputs = self.runner.compiled_model.outputs
+
+            if len(model_outputs) != 1:
+                logger.error(
+                    f"YOLO26 models must be exported end-to-end with 1 output. Found {len(model_outputs)}."
+                )
+                self.model_invalid = True
+            else:
+                output_shape = model_outputs[0].partial_shape
+                if output_shape.rank.get_length() != 3 or output_shape[-1] != 6:
+                    logger.error(
+                        f"YOLO26 models must be exported end-to-end (output shape [1, N, 6]). Found {output_shape}. Models exported with end2end=False should use model_type yolo-generic."
+                    )
+                    self.model_invalid = True
 
         if self.ov_model_type == ModelTypeEnum.yolonas:
             model_inputs = self.runner.compiled_model.inputs
@@ -211,6 +229,8 @@ class OvDetector(DetectionApi):
             return detections
         elif self.ov_model_type == ModelTypeEnum.yologeneric:
             return post_process_yolo(outputs, self.w, self.h)
+        elif self.ov_model_type == ModelTypeEnum.yolo26:
+            return post_process_yolo_end2end(outputs, self.w, self.h)
         elif self.ov_model_type == ModelTypeEnum.yolox:
             # [x, y, h, w, box_score, class_no_1, ..., class_no_80],
             results = outputs[0]

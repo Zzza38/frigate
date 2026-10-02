@@ -182,7 +182,7 @@ models:
     input_dtype: int
     # Required: Object detection model architecture, used by detectors that support more
     # than one model type (openvino, onnx, rknn, memryx, axengine, synaptics, and others)
-    # Valid values are ssd, yolox, yolonas, yolo-generic, rfdetr, dfine (default: shown below)
+    # Valid values are ssd, yolox, yolonas, yolo-generic, yolo26, rfdetr, dfine (default: shown below)
     model_type: ssd
     # Required: Label name modifications. These are merged into the standard labelmap.
     labelmap:

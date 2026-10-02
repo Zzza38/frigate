@@ -265,6 +265,57 @@ def post_process_yolo(output: list[np.ndarray], width: int, height: int) -> np.n
         return __post_process_nms_yolo(output[0], width, height)
 
 
+def post_process_yolo_end2end(
+    output: list[np.ndarray] | np.ndarray,
+    width: int,
+    height: int,
+    score_threshold: float = 0.4,
+) -> np.ndarray:
+    """Decode the end-to-end (NMS-free) head used by YOLO26 and the
+    end2end exports of YOLOv10 / YOLO11.
+
+    The model emits one tensor of shape (1, max_det, 6) with rows of
+    [x1, y1, x2, y2, confidence, class_id] in input pixel coordinates,
+    sorted by confidence and zero padded, so no NMS or class argmax is needed.
+    Rows below ``score_threshold`` (which also drops the padding) are skipped.
+    """
+    predictions = output[0] if isinstance(output, (list, tuple)) else output
+    predictions = np.asarray(predictions)
+
+    if predictions.ndim == 3:
+        predictions = predictions[0]
+
+    detections = np.zeros((20, 6), np.float32)
+
+    if predictions.ndim != 2 or predictions.shape[-1] != 6:
+        logger.warning(
+            "Unexpected end-to-end YOLO output shape %s, expected (1, N, 6)",
+            predictions.shape,
+        )
+        return detections
+
+    scores = predictions[:, 4]
+    keep = scores > score_threshold
+    predictions = predictions[keep]
+
+    if predictions.shape[0] == 0:
+        return detections
+
+    # the head already sorts by confidence, but exports through other
+    # toolchains may not, so sort before truncating to Frigate's 20 slots
+    order = np.argsort(-predictions[:, 4], kind="stable")[:20]
+    predictions = predictions[order]
+
+    detections[: len(predictions), 0] = predictions[:, 5]
+    detections[: len(predictions), 1] = predictions[:, 4]
+    detections[: len(predictions), 2] = np.clip(predictions[:, 1] / height, 0, 1)
+    detections[: len(predictions), 3] = np.clip(predictions[:, 0] / width, 0, 1)
+    detections[: len(predictions), 4] = np.clip(predictions[:, 3] / height, 0, 1)
+    detections[: len(predictions), 5] = np.clip(predictions[:, 2] / width, 0, 1)
+
+    return detections
+
+
 def post_process_yolox(
     predictions: np.ndarray,
     width: int,
